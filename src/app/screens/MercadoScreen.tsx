@@ -1,102 +1,228 @@
-import React, { useState } from 'react';
-import { View, Text, FlatList, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import {
+  View, Text, StyleSheet, FlatList,
+  TextInput, TouchableOpacity, Alert, ScrollView,
+  KeyboardAvoidingView, Platform
+} from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const MOCK_OFERTAS = [
-  { id: '1', nome: 'João', quantidade: 3, preco: 10, userId: 'joao123' },
-  { id: '2', nome: 'Maria', quantidade: 5, preco: 15, userId: 'maria456' },
-  { id: '3', nome: 'Lucas', quantidade: 2, preco: 8, userId: 'lucas789' }
+const membros = [
+  { id: '1', nome: 'João Silva' },
+  { id: '2', nome: 'Maria Oliveira' },
+  { id: '3', nome: 'Carlos Souza' }
 ];
 
-const loggedUserId = 'marco001';
+export default function MercadoScreen() {
+  const [tokens, setTokens] = useState(0);
+  const [destinatario, setDestinatario] = useState('');
+  const [quantidade, setQuantidade] = useState('');
+  const [historico, setHistorico] = useState<string[]>([]);
 
-const MercadoScreen = () => {
-  const [ofertas, setOfertas] = useState(MOCK_OFERTAS);
-  const [meusTokens, setMeusTokens] = useState(2); // Tokens do usuário logado
+  useEffect(() => {
+    const carregarTokens = async () => {
+      const tokensSalvos = await AsyncStorage.getItem('tokens');
+      setTokens(tokensSalvos ? parseInt(tokensSalvos) : 0);
+    };
 
-  const handleComprar = (ofertaId) => {
-    const ofertaSelecionada = ofertas.find(o => o.id === ofertaId);
+    carregarTokens();
 
-    if (!ofertaSelecionada) return;
+    const intervalo = setInterval(async () => {
+      setTokens((prev) => {
+        const novoTotal = prev + 1;
+        AsyncStorage.setItem('tokens', novoTotal.toString());
+        return novoTotal;
+      });
+    }, 5000);
 
-    // Atualiza tokens e remove a oferta da lista
-    setMeusTokens(meusTokens + ofertaSelecionada.quantidade);
-    setOfertas(ofertas.filter(o => o.id !== ofertaId));
+    return () => clearInterval(intervalo);
+  }, []);
 
-    Alert.alert('Compra realizada', `Você comprou ${ofertaSelecionada.quantidade} tokens de ${ofertaSelecionada.nome}`);
+  const enviarTokens = () => {
+    const qtd = parseInt(quantidade);
+    if (!destinatario || isNaN(qtd) || qtd <= 0 || qtd > tokens) {
+      Alert.alert('Erro', 'Verifique os dados inseridos.');
+      return;
+    }
+
+    const novoTotal = tokens - qtd;
+    setTokens(novoTotal);
+    AsyncStorage.setItem('tokens', novoTotal.toString());
+
+    setHistorico(prev => [
+      `Você enviou ${qtd} token(s) para ${destinatario}`,
+      ...prev
+    ]);
+    setQuantidade('');
+    setDestinatario('');
+  };
+
+  const venderToken = () => {
+    if (!destinatario) {
+      Alert.alert('Erro', 'Selecione um destinatário para vender.');
+      return;
+    }
+
+    if (tokens <= 0) {
+      Alert.alert('Erro', 'Você não tem tokens disponíveis.');
+      return;
+    }
+
+    const novoTotal = tokens - 1;
+    setTokens(novoTotal);
+    AsyncStorage.setItem('tokens', novoTotal.toString());
+
+    setHistorico(prev => [
+      `Você vendeu 1 token para ${destinatario}`,
+      ...prev
+    ]);
+
+    Alert.alert('Sucesso', `Você vendeu 1 token para ${destinatario}`);
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Mercado de Tokens (P2P)</Text>
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
+    
+        <View style={styles.container}>
+          <Text style={styles.title}>Tokens Disponíveis: {tokens}</Text>
 
-      <Text style={styles.saldo}>Seus tokens: {meusTokens}</Text>
+          <Text style={styles.label}>Escolha um destinatário:</Text>
+          <FlatList
+            data={membros}
+            keyExtractor={(item) => item.id}
+            style={styles.listaLimitada}
+            renderItem={({ item }) => {
+              const selecionado = item.nome === destinatario;
+              return (
+                <TouchableOpacity
+                  onPress={() => setDestinatario(item.nome)}
+                  style={[styles.item, selecionado && styles.itemSelecionado]}
+                >
+                  <Text style={selecionado ? styles.textoSelecionado : styles.textoNormal}>
+                    {item.nome}
+                  </Text>
+                </TouchableOpacity>
+              );
+            }}
+          />
 
-      {ofertas.length === 0 ? (
-        <Text style={styles.subtitle}>Nenhuma oferta disponível.</Text>
-      ) : (
-        <FlatList
-          data={ofertas.filter(oferta => oferta.userId !== loggedUserId)}
-          keyExtractor={(item) => item.id}
-          renderItem={({ item }) => (
-            <View style={styles.card}>
-              <Text style={styles.nome}>Vendedor: {item.nome}</Text>
-              <Text>Quantidade: {item.quantidade}</Text>
-              <Text>Preço: {item.preco} créditos</Text>
-              <TouchableOpacity
-                style={styles.button}
-                onPress={() => handleComprar(item.id)}
-              >
-                <Text style={styles.buttonText}>Comprar</Text>
-              </TouchableOpacity>
-            </View>
+          {destinatario !== '' && (
+            <Text style={styles.destinatarioSelecionado}>
+              Destinatário selecionado: {destinatario}
+            </Text>
           )}
-        />
-      )}
-    </View>
-  );
-};
 
-export default MercadoScreen;
+          <Text style={styles.label}>Quantidade de Tokens:</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="Digite a quantidade"
+            keyboardType="numeric"
+            value={quantidade}
+            onChangeText={setQuantidade}
+          />
+
+          <TouchableOpacity onPress={enviarTokens} style={styles.button}>
+            <Text style={styles.buttonText}>Enviar Tokens</Text>
+          </TouchableOpacity>
+
+          {destinatario !== '' && (
+            <TouchableOpacity onPress={venderToken} style={styles.botaoVender}>
+              <Text style={styles.textoBotao}>Vender 1 Token</Text>
+            </TouchableOpacity>
+          )}
+
+          <Text style={styles.label}>Histórico de Transações:</Text>
+          <FlatList
+            data={historico}
+            keyExtractor={(_, i) => i.toString()}
+            style={styles.listaLimitada}
+            renderItem={({ item }) => <Text style={styles.histItem}>{item}</Text>}
+          />
+        </View>
+    </KeyboardAvoidingView>
+  );
+}
 
 const styles = StyleSheet.create({
+  scrollContainer: {
+    flexGrow: 1,
+    paddingBottom: 20,
+  },
   container: {
     flex: 1,
-    backgroundColor: '#FFF',
-    padding: 16
+    padding: 20,
+    backgroundColor: '#F5F5F5',
   },
   title: {
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: 'bold',
-    marginBottom: 16
+    marginBottom: 20
   },
-  saldo: {
+  label: {
     fontSize: 16,
-    marginBottom: 12
+    marginTop: 10
   },
-  subtitle: {
-    fontSize: 16,
-    color: '#888',
-    textAlign: 'center',
-    marginTop: 32
+  listaLimitada: {
+    maxHeight: 150,
   },
-  card: {
-    backgroundColor: '#F2F2F2',
-    padding: 16,
-    borderRadius: 10,
-    marginBottom: 12
+  item: {
+    padding: 10,
+    backgroundColor: '#FFF',
+    marginVertical: 5,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#DDD'
   },
-  nome: {
+  itemSelecionado: {
+    backgroundColor: '#FFECB3',
+    borderColor: '#FF9800'
+  },
+  textoSelecionado: {
     fontWeight: 'bold',
-    marginBottom: 4
+    color: '#FF9800'
+  },
+  textoNormal: {
+    color: '#000'
+  },
+  destinatarioSelecionado: {
+    marginTop: 10,
+    fontStyle: 'italic',
+    color: '#444'
+  },
+  input: {
+    backgroundColor: '#FFF',
+    padding: 10,
+    borderRadius: 8,
+    marginVertical: 10,
+    borderColor: '#CCC',
+    borderWidth: 1
   },
   button: {
-    backgroundColor: '#2196F3',
-    padding: 10,
-    borderRadius: 6,
-    marginTop: 10
+    backgroundColor: '#3897E2',
+    padding: 12,
+    borderRadius: 8,
+    alignItems: 'center'
   },
   buttonText: {
     color: '#FFF',
-    textAlign: 'center'
+    fontWeight: 'bold'
+  },
+  botaoVender: {
+    backgroundColor: '#FF9800',
+    padding: 14,
+    borderRadius: 10,
+    alignItems: 'center',
+    marginTop: 20,
+  },
+  textoBotao: {
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  histItem: {
+    fontSize: 14,
+    marginVertical: 3
   }
 });

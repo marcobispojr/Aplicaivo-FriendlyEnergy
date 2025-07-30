@@ -1,116 +1,110 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, FlatList } from 'react-native';
+import { View, Text, Button, StyleSheet, Alert } from 'react-native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-interface ConversaoItem {
-  data: string;
-  gerado: number;
-  consumido: number;
-  tokens: number;
-}
-
 const ConversaoScreen = () => {
-  const [historico, setHistorico] = useState<ConversaoItem[]>([]);
-  const [totalTokens, setTotalTokens] = useState(0);
+  const [tokens, setTokens] = useState(0);
+  const [ultimoUso, setUltimoUso] = useState<Date | null>(null);
+  const navigation = useNavigation();
 
+  // Carrega tokens armazenados ao focar na tela
+  useFocusEffect(
+    React.useCallback(() => {
+      const carregarTokens = async () => {
+        const armazenados = await AsyncStorage.getItem('tokens');
+        setTokens(armazenados ? parseInt(armazenados) : 0);
+      };
+      carregarTokens();
+    }, [])
+  );
+
+  // Incrementa 1 token a cada 5 segundos e salva no AsyncStorage
   useEffect(() => {
-    const carregarHistorico = async () => {
-      try {
-        const historicoSalvo = await AsyncStorage.getItem('historicoConversao');
-        const totalSalvo = await AsyncStorage.getItem('totalTokens');
+    const interval = setInterval(async () => {
+      setTokens(prev => {
+        const novo = prev + 1;
+        AsyncStorage.setItem('tokens', novo.toString());
+        return novo;
+      });
+    }, 5000);
 
-        if (historicoSalvo) {
-          setHistorico(JSON.parse(historicoSalvo));
-        }
-
-        if (totalSalvo) {
-          setTotalTokens(Number(totalSalvo));
-        }
-      } catch (error) {
-        console.error('Erro ao carregar histórico de conversão:', error);
-      }
-    };
-
-    carregarHistorico();
+    return () => clearInterval(interval);
   }, []);
 
-  const renderItem = ({ item }: { item: ConversaoItem }) => (
-    <View style={styles.item}>
-      <Text style={styles.itemText}>📅 {item.data}</Text>
-      <Text style={styles.itemText}>⚡ Gerado: {item.gerado} kWh</Text>
-      <Text style={styles.itemText}>💡 Consumido: {item.consumido} kWh</Text>
-      <Text style={styles.itemText}>🎯 Tokens: {item.tokens}</Text>
-    </View>
-  );
+  const usarTokens = () => {
+    if (tokens <= 0) {
+      Alert.alert('Sem tokens disponíveis');
+      return;
+    }
+    const novoValor = tokens - 1;
+    setTokens(novoValor);
+    AsyncStorage.setItem('tokens', novoValor.toString());
+    setUltimoUso(new Date());
+    Alert.alert('Token usado com sucesso!');
+  };
+
+  const venderTokens = () => {
+    if (tokens <= 0) {
+      Alert.alert('Sem tokens para vender');
+      return;
+    }
+    navigation.navigate('Mercado', { tokens });
+  };
 
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Conversão de Energia em Tokens</Text>
-      <Text style={styles.total}>Total de Tokens Acumulados: {totalTokens}</Text>
+      <Text style={styles.tokens}>Tokens Disponíveis: {tokens}</Text>
+      {ultimoUso && (
+        <Text style={styles.info}>Último uso: {ultimoUso.toLocaleString()}</Text>
+      )}
 
-      <Text style={styles.subTitle}>Histórico de Conversões</Text>
-      <FlatList
-        data={historico}
-        renderItem={renderItem}
-        keyExtractor={(item, index) => index.toString()}
-      />
+      <View style={styles.buttonContainer}>
+        <Button title="Usar Token" onPress={usarTokens} color="#FF9800" />
+        <View style={{ height: 16 }} />
+        <Button title="Vender Token" onPress={venderTokens} color="#3897E2" />
+      </View>
 
-      <Text style={styles.rulesTitle}>📝 Regras de Conversão</Text>
-      <Text style={styles.rule}>
-        • A cada 1 kWh de excedente, 1 token é gerado automaticamente.
-      </Text>
-      <Text style={styles.rule}>
-        • O cálculo ocorre a cada 2 segundos com base nos dados simulados.
-      </Text>
-      <Text style={styles.rule}>
-        • Tokens podem ser usados, trocados ou vendidos no mercado.
+      <Text style={styles.regras}>
+        Regras: Cada 1kWh excedente sem uso por 24hrs = 1 token. Tokens podem ser usados ou vendidos.
       </Text>
     </View>
   );
 };
 
-export default ConversaoScreen;
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 20,
-    backgroundColor: '#F4FAFF',
+    backgroundColor: '#F7F9FB',
+    padding: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   title: {
     fontSize: 22,
     fontWeight: 'bold',
-    marginBottom: 10,
+    marginBottom: 24,
   },
-  total: {
+  tokens: {
     fontSize: 18,
-    marginBottom: 16,
-    color: '#4CAF50',
+    marginBottom: 12,
   },
-  subTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    marginBottom: 8,
-    color: '#555',
-  },
-  item: {
-    backgroundColor: '#EAF6FF',
-    padding: 12,
-    marginBottom: 10,
-    borderRadius: 8,
-  },
-  itemText: {
+  info: {
     fontSize: 14,
+    color: '#777',
+    marginBottom: 24,
   },
-  rulesTitle: {
-    fontSize: 18,
-    marginTop: 20,
-    fontWeight: '600',
+  buttonContainer: {
+    width: '100%',
+    marginBottom: 24,
+  },
+  regras: {
+    fontSize: 14,
     color: '#333',
-  },
-  rule: {
-    fontSize: 14,
-    marginTop: 6,
-    color: '#666',
+    marginTop: 32,
+    textAlign: 'center',
   },
 });
+
+export default ConversaoScreen;

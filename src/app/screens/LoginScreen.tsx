@@ -8,6 +8,7 @@ export default function LoginScreen({ navigation }: any) {
   const handleLogin = () => {
     if (email === 'marcobispojr@gmail.com' && senha === 'm12345Bdol') {
       navigation.navigate('Home');
+      
     } else {
       Alert.alert('Erro', 'E-mail ou senha inválidos');
     }

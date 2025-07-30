@@ -8,6 +8,7 @@ import ConversaoScreen from './screens/ConversaoScreen';
 import MercadoScreen from './screens/MercadoScreen';
 import ComunidadeScreen from './screens/ComunidadeScreen';
 import ConfiguracoesScreen from './screens/ConfiguracoesScreen';
+import LoginScreen from './screens/LoginScreen'; 
 
 
 const Drawer = createDrawerNavigator();
