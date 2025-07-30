@@ -1,6 +1,9 @@
 # ☀️ App de Gestão de Energia Solar
 
-Este é um aplicativo mobile desenvolvido como projeto da faculdade, com o objetivo de ajudar usuários a monitorar e gerenciar o consumo e produção de energia solar de forma prática, visual e intuitiva.
+Este é um aplicativo mobile desenvolvido como projeto da faculdade, com o objetivo de ajudar usuários a monitorar e gerenciar o consumo e a produção de energia solar de forma prática, visual e intuitiva.
+
+Além disso, o app conta com um mercado integrado, onde é possível comercializar a energia excedente após 24 horas de produção acumulada, incentivando o uso sustentável e inteligente dos recursos gerados. Essa funcionalidade simula um ambiente de economia colaborativa para o compartilhamento de energia.
+
 
 ## 📱 Funcionalidades
 
